@@ -1,0 +1,15 @@
+[package]
+name = "rui-macros"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+darling = "0.21.3"
+proc-macro2 = "1.0.101"
+quote = "1.0.41"
+raw-window-handle = "0.6.2"
+syn = { version = "2.0.106", features = ["full"] }
+wgpu = "27.0.1"
+
+[lib]
+proc-macro = true

@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rui = "../../rui"
+anyhow = "1.0.100"
+env_logger = "0.11.8"
+pollster = "0.4.0"
+rui = { path = "../../rui" }
+winit = "0.30.12"
