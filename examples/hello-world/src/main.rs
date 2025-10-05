@@ -1,9 +1,6 @@
 // Temporary, most of this code should get moved to the library later. Just getting a feel for what the structure is like.
 // Winit window stuff should be handled separately if possible to allow embedding using another setup
-use rui::{
-    raw_window_handle::{HasDisplayHandle, HasWindowHandle},
-    rui_macros::generate_app_state,
-};
+use rui::rui_macros::generate_app_state;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -31,19 +28,9 @@ impl ApplicationHandler<AppState> for WinitApp {
         let window = event_loop
             .create_window(WindowAttributes::default())
             .expect("Unable to create window");
-        self.state = Some(
-            pollster::block_on(AppState::new(
-                window
-                    .display_handle()
-                    .expect("Unable to get display handle")
-                    .as_raw(),
-                window
-                    .window_handle()
-                    .expect("Unable to get window handle")
-                    .as_raw(),
-            ))
-            .unwrap(),
-        );
+        let size = window.inner_size();
+        self.state =
+            Some(pollster::block_on(AppState::new(window, size.width, size.height)).unwrap());
     }
 
     // Looks to be pointless off of web

@@ -40,14 +40,26 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
         }
 
         impl #struct_name {
-            pub async fn new(
-                display_handle: rui::raw_window_handle::RawDisplayHandle,
-                window_handle: rui::raw_window_handle::RawWindowHandle
+            async fn new(
+                window_handle: impl Into<rui::wgpu::SurfaceTarget<'static>>,
+                width: u32,
+                height: u32,
             ) -> Result<Self, rui::AppStateCreationError> {
                 Ok(Self {
                     global_state: #global_state_type::default(),
-                    graphics_state: rui::AppGraphicsState::new(display_handle, window_handle).await?,
+                    graphics_state: rui::AppGraphicsState::new(window_handle, width, height).await?,
                 })
+            }
+        }
+
+        impl rui::AppState for #struct_name {
+            // TODO: Auto-generate these methods
+            fn render(&mut self) {
+
+            }
+
+            fn handle_event(&mut self, event: rui::AppEvent) {
+
             }
         }
     };
