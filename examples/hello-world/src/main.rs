@@ -13,16 +13,16 @@ struct AppGlobalState {
     window: Option<Window>,
 }
 
-generate_app_state!("main.rui", AppGlobalState, AppState);
+generate_app_state!("src/main.kdl", AppGlobalState, MyAppState);
 
 // Most of this is taken straight from the learn wgpu guide with minimal modifications
 // All of the wasm stuff is absent since I don't care yet
 #[derive(Default)]
 struct WinitApp {
-    state: Option<AppState>,
+    state: Option<MyAppState>,
 }
 
-impl ApplicationHandler<AppState> for WinitApp {
+impl ApplicationHandler<MyAppState> for WinitApp {
     // Where the window is created
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let window = event_loop
@@ -30,11 +30,11 @@ impl ApplicationHandler<AppState> for WinitApp {
             .expect("Unable to create window");
         let size = window.inner_size();
         self.state =
-            Some(pollster::block_on(AppState::new(window, size.width, size.height)).unwrap());
+            Some(pollster::block_on(MyAppState::new(window, size.width, size.height)).unwrap());
     }
 
     // Looks to be pointless off of web
-    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: AppState) {
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: MyAppState) {
         self.state = Some(event)
     }
 

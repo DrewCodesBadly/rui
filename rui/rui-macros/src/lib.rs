@@ -1,3 +1,6 @@
+use std::{fs::File, io::Read, path::PathBuf};
+
+use kdl::KdlDocument;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Ident, LitStr, Token, parse::Parse, parse_macro_input};
@@ -33,6 +36,9 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
         global_state_type,
         struct_name,
     } = parse_macro_input!(item as GenerateAppStateOpts);
+
+    let main_file_parsed = read_ui_file(main_file);
+
     let output = quote! {
         struct #struct_name {
             global_state: #global_state_type,
@@ -65,4 +71,13 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
     };
 
     output.into()
+}
+
+fn read_ui_file(main_file: String) -> miette::Result<KdlDocument> {
+    let mut file =
+        File::open(&main_file).expect(&format!("Unable to locate file \"{}\"", main_file,));
+    let mut s = String::new();
+    file.read_to_string(&mut s)
+        .expect(&format!("Cannot read contents of file \"{}\"", main_file));
+    Ok(s.parse()?)
 }
