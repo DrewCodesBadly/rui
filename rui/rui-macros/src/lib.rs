@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{fs::File, io::Read};
 
 use kdl::KdlDocument;
 use proc_macro::TokenStream;

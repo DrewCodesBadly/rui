@@ -1,6 +1,6 @@
 // Temporary, most of this code should get moved to the library later. Just getting a feel for what the structure is like.
 // Winit window stuff should be handled separately if possible to allow embedding using another setup
-use rui::rui_macros::generate_app_state;
+use rui::{AppState, rui_macros::generate_app_state};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -47,7 +47,17 @@ impl ApplicationHandler<MyAppState> for WinitApp {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            // WindowEvent::Resized(size) =>
+            WindowEvent::RedrawRequested => {
+                if let Some(state) = &mut self.state {
+                    state.render();
+                }
+            }
+            WindowEvent::Resized(size) => {
+                if let Some(state) = &mut self.state {
+                    state.graphics_state.resize(size.width, size.height);
+                    state.global_state.window.as_ref().unwrap().request_redraw();
+                }
+            }
             _ => {}
         }
     }
