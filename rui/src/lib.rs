@@ -101,3 +101,8 @@ impl AppGraphicsState {
         }
     }
 }
+
+pub trait Widget {
+    // TODO: Add necessary parameters
+    fn render(&self) {}
+}
