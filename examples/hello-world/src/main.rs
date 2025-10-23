@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 // Temporary, most of this code should get moved to the library later. Just getting a feel for what the structure is like.
 // Winit window stuff should be handled separately if possible to allow embedding using another setup
 use rui::{AppState, rui_macros::generate_app_state};
@@ -10,7 +12,7 @@ use winit::{
 
 #[derive(Default)]
 struct AppGlobalState {
-    window: Option<Window>,
+    window: Option<Arc<Window>>,
 }
 
 generate_app_state!("src/main.kdl", AppGlobalState, MyAppState);
@@ -29,8 +31,11 @@ impl ApplicationHandler<MyAppState> for WinitApp {
             .create_window(WindowAttributes::default())
             .expect("Unable to create window");
         let size = window.inner_size();
-        self.state =
-            Some(pollster::block_on(MyAppState::new(window, size.width, size.height)).unwrap());
+        let arc = Arc::new(window);
+        self.state = Some(
+            pollster::block_on(MyAppState::new(arc.clone(), size.width, size.height)).unwrap(),
+        );
+        self.state.as_mut().unwrap().global_state.window = Some(arc);
     }
 
     // Looks to be pointless off of web

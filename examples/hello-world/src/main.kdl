@@ -1,0 +1,7 @@
+State {
+    i32 x=5
+}
+
+Rectangle {
+
+}

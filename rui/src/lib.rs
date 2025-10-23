@@ -6,6 +6,8 @@ use wgpu::{
     Backends, DeviceDescriptor, InstanceDescriptor, RequestAdapterOptions, SurfaceConfiguration,
     SurfaceTarget, TextureUsages,
 };
+mod graphics_foundation;
+pub mod widgets;
 
 pub enum AppEvent {}
 
@@ -103,6 +105,12 @@ impl AppGraphicsState {
 }
 
 pub trait Widget {
-    // TODO: Add necessary parameters
-    fn render(&self) {}
+    fn render(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        render_pipeline: &wgpu::RenderPipeline,
+    );
 }

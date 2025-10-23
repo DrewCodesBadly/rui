@@ -1,4 +1,4 @@
-use std::{fmt::format, fs::File, io::Read};
+use std::{fs::File, io::Read};
 
 use kdl::{KdlDocument, KdlEntry};
 use proc_macro::TokenStream;
@@ -11,7 +11,7 @@ use crate::errors::{StructureErrors, UnimplementedError};
 mod errors;
 
 // TODO: maybe a better solution
-const STD_WIDGETS: [&str; 1] = ["Text"];
+const STD_WIDGETS: [&str; 1] = ["Rectangle"];
 
 struct GenerateAppStateOpts {
     main_file: String,
@@ -56,20 +56,21 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
     // TODO: Build general structs for all widget files, and ensure that there are no circular dependencies.
 
     // Begin creating the app state recursively.
-    let struct_tokens = build_state_struct(
+    let mut output = build_state_struct(
         main_file_parsed,
         CompilerContext {
             file_path: main_file,
-            struct_id: 1,
+            struct_id: 0,
         },
         Ident::new("Auto_MainWidget_0", Span::call_site()),
     )
     .unwrap();
 
-    let output = quote! {
+    output.extend(quote! {
         struct #struct_name {
             global_state: #global_state_type,
             graphics_state: rui::AppGraphicsState,
+            root_widget: Auto_MainWidget_0,
         }
 
         impl #struct_name {
@@ -81,6 +82,7 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
                 Ok(Self {
                     global_state: #global_state_type::default(),
                     graphics_state: rui::AppGraphicsState::new(window_handle, width, height).await?,
+                    root_widget: Auto_MainWidget_0::default(),
                 })
             }
         }
@@ -95,14 +97,14 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
 
             }
         }
-    };
+    });
 
     output.into()
 }
 
 fn read_ui_file(main_file: &str) -> miette::Result<KdlDocument> {
     let mut file =
-        File::open(&main_file).expect(&format!("Unable to locate file \"{}\"", main_file,));
+        File::open(&main_file).expect(&format!("Unable to locate file \"{}\"", main_file));
     let mut s = String::new();
     file.read_to_string(&mut s)
         .expect(&format!("Cannot read contents of file \"{}\"", main_file));
@@ -163,7 +165,7 @@ fn build_state_struct(
 
     // Begin parsing child widgets and adding them to the struct
     for (i, child) in kdl.nodes().iter().skip(1).enumerate() {
-        let widget_type = child.name().to_string();
+        let short_widget_type = child.name().to_string();
         let overrides = child
             .iter_children()
             .map(|c| {
@@ -178,24 +180,32 @@ fn build_state_struct(
             })
             .collect::<Vec<(String, String)>>();
         // disgusting pointers. seriously what
-        let widget_type = if STD_WIDGETS.iter().find(|w| *w == &widget_type).is_some() {
-            format!("rui::{}", &widget_type)
+        let widget_type = if STD_WIDGETS
+            .iter()
+            .find(|w| *w == &short_widget_type)
+            .is_some()
+        {
+            format!("rui::{}", &short_widget_type)
         } else {
+            panic!("unimplemented!!!");
             // Widget type must then be a file path to a widget file
             // Check if we've already compiled a general struct for this widget. If not, compile one.
             // TODO
 
-            context.struct_id += 1;
-            format!("Auto_{}_General", sanitize_widget_name(&widget_type),)
+            // format!("Auto_{}_General", sanitize_widget_name(&widget_type),)
         };
 
-        let wrapper_id = Ident::new(&format!("hi"), Span::call_site());
+        context.struct_id += 1;
+        let wrapper_id = Ident::new(
+            &format!("Auto_{}_{}", &short_widget_type, context.struct_id),
+            Span::call_site(),
+        );
 
         let default_struct = format!(
             "Self {{\n {} }}",
             overrides
                 .iter()
-                .fold(format!("rui::{} {{\n", &widget_type), |acc, o| {
+                .fold(format!("{} {{\n", &widget_type), |acc, o| {
                     format!("{}{}: {},\n", acc, o.0, o.1)
                 })
                 + "..Default::default()\n}"
@@ -211,7 +221,7 @@ fn build_state_struct(
 
             impl rui::Widget for #wrapper_id {
                 fn render(&self) {
-
+                    self.inner_widget.render();
                 }
             }
 
