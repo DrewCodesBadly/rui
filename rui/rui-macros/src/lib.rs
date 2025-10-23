@@ -1,10 +1,11 @@
 use std::{fs::File, io::Read};
 
+use darling::FromMeta;
 use kdl::{KdlDocument, KdlEntry};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{ToTokens, quote};
-use syn::{Ident, LitStr, Token, parse::Parse, parse_macro_input};
+use syn::{Ident, LitStr, Token, TypePath, parse::Parse, parse_macro_input};
 
 use crate::errors::{StructureErrors, UnimplementedError};
 
@@ -117,11 +118,17 @@ struct VariableInfo {
     default: String,
 }
 
+// TODO: Move fallible operations OUT of ToTokens()
 impl ToTokens for VariableInfo {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let name = &self.name;
-        let var_type = &self.var_type;
-        tokens.extend(quote!(#name: #var_type,));
+        let name = Ident::new(&self.name, Span::call_site());
+        let var_type = syn::Type::from_string(&self.var_type);
+        if let Ok(t) = var_type {
+            tokens.extend(quote!(#name: #t,));
+        } else {
+            let var_type_ident = Ident::new(&self.var_type, Span::call_site());
+            tokens.extend(quote!(#name: #var_type_ident,));
+        }
     }
 }
 
@@ -132,8 +139,8 @@ struct VariableDefaultInfo {
 
 impl ToTokens for VariableDefaultInfo {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let name = &self.name;
-        let def = &self.default;
+        let name = Ident::new(&self.name, Span::call_site());
+        let def = syn::Expr::from_string(&self.default).unwrap();
         tokens.extend(quote!(#name: #def,));
     }
 }
@@ -178,22 +185,24 @@ fn build_state_struct(
                         .unwrap(),
                 )
             })
-            .collect::<Vec<(String, String)>>();
+            .map(|(name, default)| VariableDefaultInfo { name, default })
+            .collect::<Vec<VariableDefaultInfo>>();
         // disgusting pointers. seriously what
-        let widget_type = if STD_WIDGETS
+        let widget_type_string = if STD_WIDGETS
             .iter()
             .find(|w| *w == &short_widget_type)
             .is_some()
         {
-            format!("rui::{}", &short_widget_type)
+            format!("rui::widgets::{}", &short_widget_type)
         } else {
-            panic!("unimplemented!!!");
+            todo!()
             // Widget type must then be a file path to a widget file
             // Check if we've already compiled a general struct for this widget. If not, compile one.
             // TODO
 
             // format!("Auto_{}_General", sanitize_widget_name(&widget_type),)
         };
+        let widget_type = TypePath::from_string(&widget_type_string).unwrap();
 
         context.struct_id += 1;
         let wrapper_id = Ident::new(
@@ -201,15 +210,23 @@ fn build_state_struct(
             Span::call_site(),
         );
 
-        let default_struct = format!(
-            "Self {{\n {} }}",
-            overrides
-                .iter()
-                .fold(format!("{} {{\n", &widget_type), |acc, o| {
-                    format!("{}{}: {},\n", acc, o.0, o.1)
-                })
-                + "..Default::default()\n}"
-        );
+        // TODO: make less scuffed.
+        // let default_struct = syn::Expr::from_string(&format!(
+        //     "Self {{\n {} }}",
+        //     overrides
+        //         .iter()
+        //         .fold(format!("{} {{\n", &widget_type), |acc, o| {
+        //             format!("{}{}: {},\n", acc, o.0, o.1)
+        //         })
+        //         + "..Default::default()\n}"
+        // ))
+        // .unwrap();
+        let default_struct = quote! {
+            Self {
+                #(#overrides)*
+                ..Default::default()
+            }
+        };
 
         // Now, build a wrapper struct with the additional children.
         // TODO: Track + add children
@@ -220,8 +237,15 @@ fn build_state_struct(
             }
 
             impl rui::Widget for #wrapper_id {
-                fn render(&self) {
-                    self.inner_widget.render();
+                fn render(
+                    &self,
+                    device: &rui::wgpu::Device,
+                    queue: &rui::wgpu::Queue,
+                    encoder: &mut rui::wgpu::CommandEncoder,
+                    target_view: &rui::wgpu::TextureView,
+                    render_pipeline: &rui::wgpu::RenderPipeline,
+                ) {
+                    self.inner_widget.render(device, queue, encoder, target_view, render_pipeline);
                 }
             }
 
@@ -234,8 +258,8 @@ fn build_state_struct(
         });
         vars.push(VariableInfo {
             name: format!("child_{}", i),
-            default: format!("{}::default()", &widget_type),
-            var_type: widget_type,
+            default: format!("{}::default()", &widget_type_string),
+            var_type: widget_type_string,
         });
     }
 
@@ -260,7 +284,14 @@ fn build_state_struct(
 
         // TODO
         impl rui::Widget for #struct_ident {
-            fn render(&self) {
+            fn render(
+                &self,
+                device: &rui::wgpu::Device,
+                queue: &rui::wgpu::Queue,
+                encoder: &mut rui::wgpu::CommandEncoder,
+                target_view: &rui::wgpu::TextureView,
+                render_pipeline: &rui::wgpu::RenderPipeline,
+            ) {
 
             }
         }
