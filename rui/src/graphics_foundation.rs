@@ -1,8 +1,12 @@
 use std::mem;
+use bytemuck::{Pod, Zeroable};
 
+//Implements the pod trait so bitemuck can work with it
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 pub struct Vertex {
     pub position: [f32; 2],
-    pub color: [f32; 3],
+    pub color: [f64; 3],
 }
 impl Vertex {
     // Returns layout (how the vertex should be read)
