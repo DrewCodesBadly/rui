@@ -10,7 +10,7 @@ pub struct Rectangle {
     width: f32,
     height: f32,
     // In 0-255 format
-    color: [i8; 3],
+    color: [u8; 3],
 }
 
 // TODO: Fix
