@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
     let event_loop = EventLoop::with_user_event().build()?;
     let mut app = WinitApp::default();
-    event_loop.run_app(&mut app);
+    let _ = event_loop.run_app(&mut app);
 
     Ok(())
 }

@@ -4,12 +4,16 @@ use darling::FromMeta;
 use kdl::{KdlDocument, KdlEntry};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{ToTokens, quote};
-use syn::{Ident, LitStr, Token, TypePath, parse::Parse, parse_macro_input};
+use quote::quote;
+use syn::{Expr, Ident, LitStr, Token, TypePath, parse::Parse, parse_macro_input};
 
-use crate::errors::{StructureErrors, UnimplementedError};
+use crate::{
+    errors::{StructureErrors, UnimplementedError},
+    token_help::{VariableDefaultInfo, VariableInfo, VariableType, entry_to_expression},
+};
 
 mod errors;
+mod token_help;
 
 // TODO: maybe a better solution
 const STD_WIDGETS: [&str; 1] = ["Rectangle"];
@@ -39,6 +43,15 @@ impl Parse for GenerateAppStateOpts {
 struct CompilerContext {
     file_path: String,
     struct_id: u64,
+}
+
+fn read_ui_file(main_file: &str) -> miette::Result<KdlDocument> {
+    let mut file =
+        File::open(&main_file).expect(&format!("Unable to locate file \"{}\"", main_file));
+    let mut s = String::new();
+    file.read_to_string(&mut s)
+        .expect(&format!("Cannot read contents of file \"{}\"", main_file));
+    Ok(s.parse()?)
 }
 
 /// This macro compiles your app into rust code by generating a struct representing the app's state.
@@ -90,7 +103,7 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
 
         impl rui::AppState for #struct_name {
             fn render(&mut self) {
-                // Fails silently (shouldn't fail, anyway - was probably a fluke if it did.)
+                // Fails silently (shouldn't fail, anyway - was probably a fluke if it didn't.)
                 let _ = self.graphics_state.start_render(&self.root_widget);
             }
 
@@ -101,48 +114,6 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
     });
 
     output.into()
-}
-
-fn read_ui_file(main_file: &str) -> miette::Result<KdlDocument> {
-    let mut file =
-        File::open(&main_file).expect(&format!("Unable to locate file \"{}\"", main_file));
-    let mut s = String::new();
-    file.read_to_string(&mut s)
-        .expect(&format!("Cannot read contents of file \"{}\"", main_file));
-    Ok(s.parse()?)
-}
-
-struct VariableInfo {
-    var_type: String,
-    name: String,
-    default: String,
-}
-
-// TODO: Move fallible operations OUT of ToTokens()
-impl ToTokens for VariableInfo {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let name = Ident::new(&self.name, Span::call_site());
-        let var_type = syn::Type::from_string(&self.var_type);
-        if let Ok(t) = var_type {
-            tokens.extend(quote!(#name: #t,));
-        } else {
-            let var_type_ident = Ident::new(&self.var_type, Span::call_site());
-            tokens.extend(quote!(#name: #var_type_ident,));
-        }
-    }
-}
-
-struct VariableDefaultInfo {
-    name: String,
-    default: String,
-}
-
-impl ToTokens for VariableDefaultInfo {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let name = Ident::new(&self.name, Span::call_site());
-        let def = syn::Expr::from_string(&self.default).unwrap();
-        tokens.extend(quote!(#name: #def,));
-    }
 }
 
 fn build_state_struct(
@@ -163,21 +134,26 @@ fn build_state_struct(
         let t = child.name().to_string();
         for entry in child.entries() {
             vars.push(VariableInfo {
-                var_type: t.clone(),
-                name: entry.name().ok_or(UnimplementedError {})?.to_string(),
-                default: entry_to_expression(entry)?.unwrap_or(String::from("Default::default()")),
+                var_type: VariableType::from(&t),
+                name: Ident::new(
+                    &entry.name().ok_or(UnimplementedError {})?.to_string(),
+                    Span::call_site(),
+                ),
+                default: entry_to_expression(entry)?
+                    .unwrap_or(Expr::from_string("Default::default()").unwrap()),
             });
         }
     }
 
     // Begin parsing child widgets and adding them to the struct
+    let mut child_widgets = Vec::<Ident>::new();
     for (i, child) in kdl.nodes().iter().skip(1).enumerate() {
         let short_widget_type = child.name().to_string();
         let overrides = child
             .iter_children()
             .map(|c| {
                 (
-                    child.name().to_string(),
+                    Ident::new(&c.name().to_string(), Span::call_site()),
                     entry_to_expression(c.entries().first().ok_or(UnimplementedError {}).unwrap())
                         // lmao
                         .unwrap()
@@ -205,26 +181,15 @@ fn build_state_struct(
         let widget_type = TypePath::from_string(&widget_type_string).unwrap();
 
         context.struct_id += 1;
-        let wrapper_id = Ident::new(
-            &format!("Auto_{}_{}", &short_widget_type, context.struct_id),
-            Span::call_site(),
-        );
+        let wrapper_name = format!("Auto_{}_{}", &short_widget_type, context.struct_id);
+        let wrapper_id = Ident::new(&wrapper_name, Span::call_site());
 
-        // TODO: make less scuffed.
-        // let default_struct = syn::Expr::from_string(&format!(
-        //     "Self {{\n {} }}",
-        //     overrides
-        //         .iter()
-        //         .fold(format!("{} {{\n", &widget_type), |acc, o| {
-        //             format!("{}{}: {},\n", acc, o.0, o.1)
-        //         })
-        //         + "..Default::default()\n}"
-        // ))
-        // .unwrap();
         let default_struct = quote! {
             Self {
-                #(#overrides)*
-                ..Default::default()
+                inner_widget: #widget_type {
+                    #(#overrides)*
+                    ..Default::default()
+                },
             }
         };
 
@@ -239,11 +204,10 @@ fn build_state_struct(
             impl rui::Widget for #wrapper_id {
                 fn render(
                     &self,
-                    device: &rui::wgpu::Device,
                     render_pass: &mut rui::wgpu::RenderPass,
-                    pipelines: &rui::AppPipelines,
+                    graphics_state: &rui::AppGraphicsState,
                 ) {
-                    self.inner_widget.render(device, render_pass, pipelines);
+                    self.inner_widget.render(render_pass, graphics_state);
                 }
             }
 
@@ -254,10 +218,13 @@ fn build_state_struct(
             }
 
         });
+        let name = Ident::new(&format!("child_{}", i), Span::call_site());
+        child_widgets.push(name.clone());
         vars.push(VariableInfo {
-            name: format!("child_{}", i),
-            default: format!("{}::default()", &widget_type_string),
-            var_type: widget_type_string,
+            name,
+            default: Expr::from_string(&format!("{}::default()", &wrapper_name))
+                .map_err(|_| UnimplementedError {})?,
+            var_type: VariableType::SynIdent(wrapper_id),
         });
     }
 
@@ -280,35 +247,18 @@ fn build_state_struct(
             }
         }
 
-        // TODO
         impl rui::Widget for #struct_ident {
             fn render(
                 &self,
-                device: &rui::wgpu::Device,
                 render_pass: &mut rui::wgpu::RenderPass,
-                pipelines: &rui::AppPipelines,
+                graphics_state: &rui::AppGraphicsState,
             ) {
-
+                #(self.#child_widgets.render(render_pass, graphics_state))*
             }
         }
     });
 
     Ok(out_tokens)
-}
-
-fn entry_to_expression(entry: &KdlEntry) -> miette::Result<Option<String>> {
-    if entry.ty().filter(|i| i.to_string() == "expr").is_some() {
-        // TODO: parse expression for errors, if at all possible
-        Ok(entry.value().as_string().map(|s| s.to_owned()))
-    } else {
-        Ok(match entry.value() {
-            kdl::KdlValue::String(s) => Some(format!("String::from({})", s)),
-            kdl::KdlValue::Integer(i) => Some(format!("{}", i)),
-            kdl::KdlValue::Float(f) => Some(format!("{}", f)),
-            kdl::KdlValue::Bool(b) => Some(format!("{}", b)),
-            kdl::KdlValue::Null => None,
-        })
-    }
 }
 
 fn sanitize_widget_name(name: &str) -> String {

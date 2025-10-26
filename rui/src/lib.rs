@@ -5,10 +5,12 @@ pub use wgpu;
 use wgpu::{
     Backends, Color, CommandEncoderDescriptor, DeviceDescriptor, InstanceDescriptor,
     RequestAdapterOptions, SurfaceConfiguration, SurfaceTarget, TextureUsages,
-    TextureViewDescriptor,
+    TextureViewDescriptor, util::DeviceExt,
 };
 
 pub use pipelines::AppPipelines;
+
+use crate::graphics_foundation::get_square_vertex_buffer;
 mod graphics_foundation;
 mod pipelines;
 pub mod widgets;
@@ -38,6 +40,7 @@ pub struct AppGraphicsState {
     queue: wgpu::Queue,
     surface_config: wgpu::SurfaceConfiguration,
     pipelines: AppPipelines,
+    square_vertices: wgpu::Buffer,
 }
 
 impl AppGraphicsState {
@@ -92,7 +95,10 @@ impl AppGraphicsState {
 
         surface.configure(&device, &surface_config);
 
-        let pipelines = AppPipelines::new();
+        let pipelines = AppPipelines::new(&device, &surface_config);
+
+        // Square vertex buffer reused by most things
+        let square_vertices = get_square_vertex_buffer(&device);
 
         Ok(Self {
             surface,
@@ -100,6 +106,7 @@ impl AppGraphicsState {
             device,
             queue,
             pipelines,
+            square_vertices,
         })
     }
 
@@ -133,12 +140,13 @@ impl AppGraphicsState {
                 ops: wgpu::Operations {
                     // Clear view before rendering to it.
                     // TODO: Not do this.
-                    load: wgpu::LoadOp::Clear(Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 1.0,
-                    }),
+                    // load: wgpu::LoadOp::Clear(Color {
+                    //     r: 0.0,
+                    //     g: 0.0,
+                    //     b: 0.0,
+                    //     a: 1.0,
+                    // }),
+                    load: wgpu::LoadOp::Load,
                     // Store the new data in the view (as in actually edit it)
                     store: wgpu::StoreOp::Store,
                 },
@@ -150,7 +158,7 @@ impl AppGraphicsState {
             occlusion_query_set: None,
         });
 
-        widget.render(&self.device, &mut render_pass, &self.pipelines);
+        widget.render(&mut render_pass, &self);
 
         drop(render_pass);
 
@@ -161,11 +169,7 @@ impl AppGraphicsState {
     }
 }
 
+// TODO: Figure out how to initialize and uninitialize widget resources.
 pub trait Widget {
-    fn render(
-        &self,
-        device: &wgpu::Device,
-        render_pass: &mut wgpu::RenderPass,
-        pipelines: &AppPipelines,
-    );
+    fn render(&self, render_pass: &mut wgpu::RenderPass, graphics_state: &AppGraphicsState);
 }

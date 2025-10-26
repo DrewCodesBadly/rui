@@ -1,63 +1,33 @@
-use wgpu::util::DeviceExt;
+use wgpu::{BindGroup, Color};
 
-use crate::{Widget, graphics_foundation::Vertex, pipelines::AppPipelines};
+use crate::{AppGraphicsState, Widget};
 
 // TODO: Widget must implement Default. Might want to set default values.
 #[derive(Default)]
 pub struct Rectangle {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    // In 0-255 format
-    color: [u8; 3],
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub color: Color,
+    widget_render_data: Option<RectangleRenderData>,
+}
+
+struct RectangleRenderData {
+    transform_bind: BindGroup,
+    color_bind: BindGroup,
 }
 
 impl Widget for Rectangle {
-    fn render(
-        &self,
-        device: &wgpu::Device,
-        render_pass: &mut wgpu::RenderPass,
-        pipelines: &AppPipelines,
-    ) {
-        // Converts to 0-1 format
-        let color = wgpu::Color {
-            r: self.color[0] as f64 / 255.0,
-            g: self.color[1] as f64 / 255.0,
-            b: self.color[2] as f64 / 255.0,
-            a: 1.0,
-        };
-
-        // Defines vertices
-        // top left, top right, bottom left, bottom right
-        let vertices = [
-            Vertex {
-                position: [self.x, self.y],
-                color: [color.r, color.g, color.b],
-            },
-            Vertex {
-                position: [self.x + self.width, self.y],
-                color: [color.r, color.g, color.b],
-            },
-            Vertex {
-                position: [self.x, self.y + self.height],
-                color: [color.r, color.g, color.b],
-            },
-            Vertex {
-                position: [self.x + self.width, self.y + self.height],
-                color: [color.r, color.g, color.b],
-            },
-        ];
-
-        // initializes vertex buffer
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Rectangle vert buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        render_pass.set_pipeline(pipelines.solid_color());
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.draw(0..4, 0..1);
+    fn render(&self, render_pass: &mut wgpu::RenderPass, graphics_state: &AppGraphicsState) {
+        if let Some(data) = &self.widget_render_data {
+            render_pass.set_pipeline(graphics_state.pipelines.solid_color());
+            // 0: transform
+            render_pass.set_bind_group(0, &data.transform_bind, &[]);
+            // 1: color
+            render_pass.set_bind_group(0, &data.color_bind, &[]);
+            render_pass.set_vertex_buffer(0, graphics_state.square_vertices.slice(..));
+            render_pass.draw(0..6, 0..1);
+        }
     }
 }
