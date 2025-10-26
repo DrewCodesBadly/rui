@@ -1,6 +1,6 @@
 use wgpu::util::DeviceExt;
 
-use crate::{Widget, graphics_foundation::Vertex};
+use crate::{Widget, graphics_foundation::Vertex, pipelines::AppPipelines};
 
 // TODO: Widget must implement Default. Might want to set default values.
 #[derive(Default)]
@@ -13,32 +13,13 @@ pub struct Rectangle {
     color: [u8; 3],
 }
 
-// TODO: Fix
-// Commented so I can test the compiler.
-// impl Widget for Rectangle {
-//     fn render(
-//         &self,
-//         device: &wgpu::Device,
-//         queue: &wgpu::Queue,
-//         encoder: &mut wgpu::CommandEncoder,
-//         target_view: &wgpu::TextureView,
-//         render_pipeline: &wgpu::RenderPipeline,
-//     ) {
-//
-//     }
-// }
 impl Widget for Rectangle {
     fn render(
         &self,
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        target_view: &wgpu::TextureView,
-        render_pipeline: &wgpu::RenderPipeline,
+        render_pass: &mut wgpu::RenderPass,
+        pipelines: &AppPipelines,
     ) {
-        //just to make it stop complaining queue isnt used
-        queue;
-
         // Converts to 0-1 format
         let color = wgpu::Color {
             r: self.color[0] as f64 / 255.0,
@@ -75,31 +56,8 @@ impl Widget for Rectangle {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        // actual render pass
-        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Rectangle!"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                // View the render pass applies to
-                view: target_view,
-                // useless
-                resolve_target: None,
-
-                ops: wgpu::Operations {
-                    // Keep previous stuff in view
-                    load: wgpu::LoadOp::Load,
-                    // Store the new data in the view (as in actually edit it)
-                    store: wgpu::StoreOp::Store,
-                },
-                depth_slice: None,
-            })],
-            // useless
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        rpass.set_pipeline(render_pipeline);
-        rpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        rpass.draw(0..4, 0..1);
+        render_pass.set_pipeline(pipelines.solid_color());
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.draw(0..4, 0..1);
     }
 }

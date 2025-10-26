@@ -3,10 +3,14 @@ pub use rui_macros;
 pub use raw_window_handle;
 pub use wgpu;
 use wgpu::{
-    Backends, DeviceDescriptor, InstanceDescriptor, RequestAdapterOptions, SurfaceConfiguration,
-    SurfaceTarget, TextureUsages,
+    Backends, Color, CommandEncoderDescriptor, DeviceDescriptor, InstanceDescriptor,
+    RequestAdapterOptions, SurfaceConfiguration, SurfaceTarget, TextureUsages,
+    TextureViewDescriptor,
 };
+
+pub use pipelines::AppPipelines;
 mod graphics_foundation;
+mod pipelines;
 pub mod widgets;
 
 pub enum AppEvent {}
@@ -33,6 +37,7 @@ pub struct AppGraphicsState {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface_config: wgpu::SurfaceConfiguration,
+    pipelines: AppPipelines,
 }
 
 impl AppGraphicsState {
@@ -87,11 +92,14 @@ impl AppGraphicsState {
 
         surface.configure(&device, &surface_config);
 
+        let pipelines = AppPipelines::new();
+
         Ok(Self {
             surface,
             surface_config,
             device,
             queue,
+            pipelines,
         })
     }
 
@@ -102,15 +110,62 @@ impl AppGraphicsState {
             self.surface.configure(&self.device, &self.surface_config);
         }
     }
+
+    pub fn start_render(&mut self, widget: &impl Widget) -> anyhow::Result<()> {
+        let output = self.surface.get_current_texture()?;
+        let view = output.texture.create_view(&TextureViewDescriptor {
+            // TODO: Any needed overrides?
+            ..Default::default()
+        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Frame render encoder"),
+            });
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Rectangle!"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                // View the render pass applies to
+                view: &view,
+                // useless
+                resolve_target: None,
+
+                ops: wgpu::Operations {
+                    // Clear view before rendering to it.
+                    // TODO: Not do this.
+                    load: wgpu::LoadOp::Clear(Color {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 1.0,
+                    }),
+                    // Store the new data in the view (as in actually edit it)
+                    store: wgpu::StoreOp::Store,
+                },
+                depth_slice: None,
+            })],
+            // useless
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        widget.render(&self.device, &mut render_pass, &self.pipelines);
+
+        drop(render_pass);
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        output.present();
+        Ok(())
+    }
 }
 
 pub trait Widget {
     fn render(
         &self,
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        target_view: &wgpu::TextureView,
-        render_pipeline: &wgpu::RenderPipeline,
+        render_pass: &mut wgpu::RenderPass,
+        pipelines: &AppPipelines,
     );
 }

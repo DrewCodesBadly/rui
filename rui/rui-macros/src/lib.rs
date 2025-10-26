@@ -89,9 +89,9 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
         }
 
         impl rui::AppState for #struct_name {
-            // TODO: Auto-generate these methods
             fn render(&mut self) {
-
+                // Fails silently (shouldn't fail, anyway - was probably a fluke if it did.)
+                let _ = self.graphics_state.start_render(&self.root_widget);
             }
 
             fn handle_event(&mut self, event: rui::AppEvent) {
@@ -240,12 +240,10 @@ fn build_state_struct(
                 fn render(
                     &self,
                     device: &rui::wgpu::Device,
-                    queue: &rui::wgpu::Queue,
-                    encoder: &mut rui::wgpu::CommandEncoder,
-                    target_view: &rui::wgpu::TextureView,
-                    render_pipeline: &rui::wgpu::RenderPipeline,
+                    render_pass: &mut rui::wgpu::RenderPass,
+                    pipelines: &rui::AppPipelines,
                 ) {
-                    self.inner_widget.render(device, queue, encoder, target_view, render_pipeline);
+                    self.inner_widget.render(device, render_pass, pipelines);
                 }
             }
 
@@ -287,10 +285,8 @@ fn build_state_struct(
             fn render(
                 &self,
                 device: &rui::wgpu::Device,
-                queue: &rui::wgpu::Queue,
-                encoder: &mut rui::wgpu::CommandEncoder,
-                target_view: &rui::wgpu::TextureView,
-                render_pipeline: &rui::wgpu::RenderPipeline,
+                render_pass: &mut rui::wgpu::RenderPass,
+                pipelines: &rui::AppPipelines,
             ) {
 
             }
