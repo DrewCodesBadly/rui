@@ -3,17 +3,21 @@ pub use rui_macros;
 pub use raw_window_handle;
 pub use wgpu;
 use wgpu::{
-    Backends, Color, CommandEncoderDescriptor, DeviceDescriptor, InstanceDescriptor,
+    Backends, CommandEncoderDescriptor, DeviceDescriptor, InstanceDescriptor,
     RequestAdapterOptions, SurfaceConfiguration, SurfaceTarget, TextureUsages,
-    TextureViewDescriptor, util::DeviceExt,
+    TextureViewDescriptor,
 };
 
 pub use pipelines::AppPipelines;
+pub use widgets::Widget;
 
 use crate::graphics_foundation::get_square_vertex_buffer;
+mod bind_groups;
 mod graphics_foundation;
 mod pipelines;
+mod util;
 pub mod widgets;
+pub use util::*;
 
 pub enum AppEvent {}
 
@@ -118,7 +122,7 @@ impl AppGraphicsState {
         }
     }
 
-    pub fn start_render(&mut self, widget: &impl Widget) -> anyhow::Result<()> {
+    pub fn start_render(&mut self, widget: &mut impl Widget<()>) -> anyhow::Result<()> {
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&TextureViewDescriptor {
             // TODO: Any needed overrides?
@@ -130,7 +134,7 @@ impl AppGraphicsState {
                 label: Some("Frame render encoder"),
             });
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Rectangle!"),
+            label: Some("Frame Redraw"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 // View the render pass applies to
                 view: &view,
@@ -158,7 +162,7 @@ impl AppGraphicsState {
             occlusion_query_set: None,
         });
 
-        widget.render(&mut render_pass, &self);
+        widget.render(&mut render_pass, &self, &());
 
         drop(render_pass);
 
@@ -167,9 +171,4 @@ impl AppGraphicsState {
         output.present();
         Ok(())
     }
-}
-
-// TODO: Figure out how to initialize and uninitialize widget resources.
-pub trait Widget {
-    fn render(&self, render_pass: &mut wgpu::RenderPass, graphics_state: &AppGraphicsState);
 }

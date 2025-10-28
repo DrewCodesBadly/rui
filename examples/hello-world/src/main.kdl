@@ -7,4 +7,5 @@ Rectangle {
     y 0.4
     width 0.2
     height 0.2
+    color (expr)"rui::Color::from_rgba(255, 0, 255, 255)"
 }

@@ -27,7 +27,7 @@ fn vs_main(
     let new_position = widget_transform.position + vertex.position * widget_transform.scale;
 
     // Transform to clip space
-    let cs = (vec2<f32>(vertex.position.x, -vertex.position.y) * 2.0) + vec2<f32>(-1.0, 1.0);
+    let cs = (vec2<f32>(new_position.x, -new_position.y) * 2.0) + vec2<f32>(-1.0, 1.0);
     out.clip_position = vec4<f32>(cs, 0.0, 1.0);
     return out;
 }

@@ -5,13 +5,15 @@ use kdl::{KdlDocument, KdlEntry};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{Expr, Ident, LitStr, Token, TypePath, parse::Parse, parse_macro_input};
+use syn::{Expr, Ident, LitStr, Token, TypePath, parse::Parse, parse_macro_input, token};
 
 use crate::{
+    child_parser::build_child_struct,
     errors::{StructureErrors, UnimplementedError},
     token_help::{VariableDefaultInfo, VariableInfo, VariableType, entry_to_expression},
 };
 
+mod child_parser;
 mod errors;
 mod token_help;
 
@@ -70,7 +72,7 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
     // TODO: Build general structs for all widget files, and ensure that there are no circular dependencies.
 
     // Begin creating the app state recursively.
-    let mut output = build_state_struct(
+    let (mut output, _context) = build_state_struct(
         main_file_parsed,
         CompilerContext {
             file_path: main_file,
@@ -104,7 +106,7 @@ pub fn generate_app_state(item: TokenStream) -> TokenStream {
         impl rui::AppState for #struct_name {
             fn render(&mut self) {
                 // Fails silently (shouldn't fail, anyway - was probably a fluke if it didn't.)
-                let _ = self.graphics_state.start_render(&self.root_widget);
+                let _ = self.graphics_state.start_render(&mut self.root_widget);
             }
 
             fn handle_event(&mut self, event: rui::AppEvent) {
@@ -120,7 +122,7 @@ fn build_state_struct(
     kdl: KdlDocument,
     mut context: CompilerContext,
     struct_ident: Ident,
-) -> miette::Result<proc_macro2::TokenStream> {
+) -> miette::Result<(proc_macro2::TokenStream, CompilerContext)> {
     let state_node = kdl
         .nodes()
         .first()
@@ -148,83 +150,16 @@ fn build_state_struct(
     // Begin parsing child widgets and adding them to the struct
     let mut child_widgets = Vec::<Ident>::new();
     for (i, child) in kdl.nodes().iter().skip(1).enumerate() {
-        let short_widget_type = child.name().to_string();
-        let overrides = child
-            .iter_children()
-            .map(|c| {
-                (
-                    Ident::new(&c.name().to_string(), Span::call_site()),
-                    entry_to_expression(c.entries().first().ok_or(UnimplementedError {}).unwrap())
-                        // lmao
-                        .unwrap()
-                        .ok_or(UnimplementedError {})
-                        .unwrap(),
-                )
-            })
-            .map(|(name, default)| VariableDefaultInfo { name, default })
-            .collect::<Vec<VariableDefaultInfo>>();
-        // disgusting pointers. seriously what
-        let widget_type_string = if STD_WIDGETS
-            .iter()
-            .find(|w| *w == &short_widget_type)
-            .is_some()
-        {
-            format!("rui::widgets::{}", &short_widget_type)
-        } else {
-            todo!()
-            // Widget type must then be a file path to a widget file
-            // Check if we've already compiled a general struct for this widget. If not, compile one.
-            // TODO
-
-            // format!("Auto_{}_General", sanitize_widget_name(&widget_type),)
-        };
-        let widget_type = TypePath::from_string(&widget_type_string).unwrap();
-
-        context.struct_id += 1;
-        let wrapper_name = format!("Auto_{}_{}", &short_widget_type, context.struct_id);
-        let wrapper_id = Ident::new(&wrapper_name, Span::call_site());
-
-        let default_struct = quote! {
-            Self {
-                inner_widget: #widget_type {
-                    #(#overrides)*
-                    ..Default::default()
-                },
-            }
-        };
-
-        // Now, build a wrapper struct with the additional children.
-        // TODO: Track + add children
-        out_tokens.extend(quote! {
-            #[allow(non_camel_case_types)]
-            struct #wrapper_id {
-                inner_widget: #widget_type,
-            }
-
-            impl rui::Widget for #wrapper_id {
-                fn render(
-                    &self,
-                    render_pass: &mut rui::wgpu::RenderPass,
-                    graphics_state: &rui::AppGraphicsState,
-                ) {
-                    self.inner_widget.render(render_pass, graphics_state);
-                }
-            }
-
-            impl Default for #wrapper_id {
-                fn default() -> Self {
-                    #default_struct
-                }
-            }
-
-        });
+        let (child_ident, tokens, new_context) = build_child_struct(child, context)?;
+        context = new_context;
+        out_tokens.extend(tokens);
         let name = Ident::new(&format!("child_{}", i), Span::call_site());
         child_widgets.push(name.clone());
         vars.push(VariableInfo {
             name,
-            default: Expr::from_string(&format!("{}::default()", &wrapper_name))
+            default: Expr::from_string(&format!("{}::default()", &child_ident.to_string()))
                 .map_err(|_| UnimplementedError {})?,
-            var_type: VariableType::SynIdent(wrapper_id),
+            var_type: VariableType::SynIdent(child_ident),
         });
     }
 
@@ -247,18 +182,30 @@ fn build_state_struct(
             }
         }
 
-        impl rui::Widget for #struct_ident {
+        impl rui::Widget<()> for #struct_ident {
             fn render(
-                &self,
+                &mut self,
                 render_pass: &mut rui::wgpu::RenderPass,
                 graphics_state: &rui::AppGraphicsState,
+                _ephemeral: &(),
             ) {
-                #(self.#child_widgets.render(render_pass, graphics_state))*
+                #(self.#child_widgets.render(render_pass, graphics_state, &()))*
             }
+
+            fn destroy(&mut self) {
+                #(self.#child_widgets.destroy())*
+            }
+
+            fn update_ephemeral(
+                &self,
+                _graphics_state: &rui::AppGraphicsState,
+                _old: Option<()>,
+            ) -> () {}
+
         }
     });
 
-    Ok(out_tokens)
+    Ok((out_tokens, context))
 }
 
 fn sanitize_widget_name(name: &str) -> String {

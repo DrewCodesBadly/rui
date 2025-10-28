@@ -1,14 +1,14 @@
 use wgpu::{
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
-    ColorTargetState, ColorWrites, Device, FragmentState, MultisampleState,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PrimitiveState, RenderPipeline,
-    RenderPipelineDescriptor, ShaderStages, SurfaceConfiguration, VertexState, include_wgsl,
+    BindGroupLayout, BlendState, ColorTargetState, ColorWrites, Device, FragmentState,
+    MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PrimitiveState,
+    RenderPipeline, RenderPipelineDescriptor, SurfaceConfiguration, VertexState, include_wgsl,
 };
 
 use crate::graphics_foundation::Vertex;
 
 pub struct AppPipelines {
-    solid_color: RenderPipeline,
+    pub solid_color: RenderPipeline,
+    pub solid_color_bind_layout: BindGroupLayout,
 }
 
 impl AppPipelines {
@@ -17,13 +17,17 @@ impl AppPipelines {
         // A lot of it should be the same across pipelines, just a different shader and layout.
         let solid_color_shader =
             device.create_shader_module(include_wgsl!("shaders/solid_color.wgsl"));
-        let solid_color_bind_groups = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Solid Color Binds"),
-            entries: &[widget_transform_layout(0), color_uniform_layout(1)],
-        });
+        let solid_color_bind_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Solid Color Layout"),
+                entries: &[
+                    crate::bind_groups::widget_transform_layout(0),
+                    crate::bind_groups::color_uniform_layout(1),
+                ],
+            });
         let solid_color_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Solid Color Layout"),
-            bind_group_layouts: &[&solid_color_bind_groups],
+            bind_group_layouts: &[&solid_color_bind_layout],
             push_constant_ranges: &[],
         });
 
@@ -66,46 +70,9 @@ impl AppPipelines {
             cache: None,     // Not going to bother with this yet.
         });
 
-        Self { solid_color }
-    }
-
-    pub fn solid_color(&self) -> &RenderPipeline {
-        &self.solid_color
-    }
-}
-
-// Binding layouts and related structs
-
-// TODO: Rotation (needed?)
-struct WidgetTransformUniform {
-    x: f32,
-    y: f32,
-    sx: f32,
-    sy: f32,
-}
-
-fn widget_transform_layout(binding: u32) -> BindGroupLayoutEntry {
-    BindGroupLayoutEntry {
-        binding,
-        visibility: ShaderStages::VERTEX,
-        ty: BindingType::Buffer {
-            ty: BufferBindingType::Uniform,
-            has_dynamic_offset: false,
-            min_binding_size: None,
-        },
-        count: None,
-    }
-}
-
-fn color_uniform_layout(binding: u32) -> BindGroupLayoutEntry {
-    BindGroupLayoutEntry {
-        binding,
-        visibility: ShaderStages::FRAGMENT,
-        ty: BindingType::Buffer {
-            ty: BufferBindingType::Uniform,
-            has_dynamic_offset: false,
-            min_binding_size: None,
-        },
-        count: None,
+        Self {
+            solid_color,
+            solid_color_bind_layout,
+        }
     }
 }
