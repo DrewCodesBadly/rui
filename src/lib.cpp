@@ -1,3 +1,5 @@
+#include "UILib/element.hpp"
+#include "util.cpp"
 #include <SFML/Graphics.hpp>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -6,17 +8,18 @@
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 #include <UILib/lib.hpp>
-#include <string>
 
-void runApp(std::string appName) { runApp(appName, AppStartupOptions()); }
-
-void runApp(std::string appName, AppStartupOptions options) {
+/// Starts running this app in a window.
+void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
   sf::ContextSettings settings;
-  settings.antiAliasingLevel = 4; // seems to be the only relevant setting
-  sf::RenderWindow window(sf::VideoMode({800, 600}), appName,
-                          sf::Style::Default, sf::State::Windowed, settings);
+  settings.antiAliasingLevel = antiAliasingLevel;
+  sf::RenderWindow window(
+      sf::VideoMode({sizeX, sizeY}), appName, sf::Style::Default,
+      fullscreen ? sf::State::Fullscreen : sf::State::Windowed, settings);
   window.setVerticalSyncEnabled(true);
+  bool needsRedraw = true;
   while (window.isOpen()) {
+
     while (const std::optional event = window.pollEvent()) {
       // Example: listening to different types of events and "handling" them
       if (event->is<sf::Event::Closed>()) {
@@ -40,11 +43,33 @@ void runApp(std::string appName, AppStartupOptions options) {
       }
     }
 
-    window.clear(sf::Color::White);
+    if (needsRedraw) {
+      window.clear(toSFColor(backgroundColor));
 
-    // this is where the redraw loop goes if we're clearing and redrawing per
-    // frame.
+      // draw...
 
-    window.display();
+      window.display();
+      needsRedraw = false;
+    }
   }
 }
+
+// App builder methods
+
+/// Sets whether or not vsync is enabled on the window.
+App App::withVsync(bool vsync) {
+  this->useVsync = vsync;
+  return *this;
+}
+
+App App::withAntiAliasing(int antiAliasingLevel) {
+  this->antiAliasingLevel = antiAliasingLevel;
+  return *this;
+}
+
+App App::withBackgroundColor(ui::Color color) {
+  this->backgroundColor = color;
+  return *this;
+}
+
+void App::setRootElement(ui::Element element) { rootElement = element; }
