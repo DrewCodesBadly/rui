@@ -2,4 +2,4 @@
 #include <UILib/element.hpp>
 
 void ui::Element::drawToWindow(sf::RenderWindow window,
-                               ElementRenderConstraints constraints) {}
+                               ElementRenderContext context) {}

@@ -46,8 +46,6 @@ void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
     if (needsRedraw) {
       window.clear(toSFColor(backgroundColor));
 
-      // draw...
-
       window.display();
       needsRedraw = false;
     }
