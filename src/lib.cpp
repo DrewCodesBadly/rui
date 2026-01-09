@@ -4,6 +4,7 @@
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/String.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <SFML/Window/ContextSettings.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/WindowEnums.hpp>
@@ -45,6 +46,11 @@ void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
 
     if (needsRedraw) {
       window.clear(toSFColor(backgroundColor));
+
+      ui::ElementRenderContext context;
+      context.size = sf::Vector2u(sizeX, sizeY);
+      rootElement.drawToWindow(&window, context);
+      rootElement.renderChildren(&window, context);
 
       window.display();
       needsRedraw = false;
