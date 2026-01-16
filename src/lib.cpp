@@ -1,5 +1,6 @@
 #include "element.cpp"
 #include "shapes.cpp"
+#include "text.cpp"
 #include "util.cpp"
 #include <SFML/Graphics.hpp>
 #include <SFML/Graphics/Color.hpp>

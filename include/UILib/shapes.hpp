@@ -5,6 +5,7 @@
 #include <initializer_list>
 
 namespace ui {
+/// Draws a box inside its available area.
 class Box : public Element {
 
 public:
@@ -12,10 +13,24 @@ public:
 
   void drawToWindow(sf::RenderWindow *window,
                     ElementRenderContext context) override;
-  Box *withBackground(ui::Color color);
 
   Box() {};
   Box(std::initializer_list<Element *> children) { this->children = children; };
   ~Box() {};
 };
+
+/// Draws a circle inside its available area.
+class Circle : public Element {
+public:
+  ui::Color fillColor = ui::Color(0, 0, 0);
+  void drawToWindow(sf::RenderWindow *window,
+                    ElementRenderContext context) override;
+
+  Circle() {};
+  Circle(std::initializer_list<Element *> children) {
+    this->children = children;
+  };
+  ~Circle() {};
+};
+
 } // namespace ui

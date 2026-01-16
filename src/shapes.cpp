@@ -1,6 +1,8 @@
 #include "util.cpp"
+#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Window.hpp>
 #include <UILib/element.hpp>
 #include <UILib/shapes.hpp>
@@ -15,7 +17,20 @@ void ui::Box::drawToWindow(sf::RenderWindow *window,
   window->draw(shape);
 }
 
-ui::Box *ui::Box::withBackground(ui::Color color) {
-  background = color;
-  return this;
+void ui::Circle::drawToWindow(sf::RenderWindow *window,
+                              ElementRenderContext context) {
+  sf::CircleShape shape;
+  shape.setFillColor(toSFColor(fillColor));
+  if (context.size.x > context.size.y) {
+    shape.setRadius(context.size.y * 0.5);
+    shape.setPosition(
+        context.topLeft +
+        sf::Vector2f((context.size.x - context.size.y) * 0.5, 0.));
+  } else {
+    shape.setRadius(context.size.x * 0.5);
+    shape.setPosition(
+        context.topLeft +
+        sf::Vector2f(0., (context.size.y - context.size.x) * 0.5));
+  }
+  window->draw(shape);
 }

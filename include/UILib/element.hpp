@@ -49,7 +49,7 @@ public:
   void renderChildren(sf::RenderWindow *window, ElementRenderContext context);
 
   sf::Vector2f getMiniminumSize();
-  sf::Vector2f recalculateMinimumSize();
+  virtual sf::Vector2f recalculateMinimumSize();
 
   Element() {};
   Element(std::initializer_list<Element *> children) : children(children) {};
