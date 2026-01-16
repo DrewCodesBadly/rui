@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <UILib/util.hpp>
+#pragma once
 
 ui::Color fromSFColor(sf::Color color) {
   return ui::Color(color.r, color.g, color.b, color.a);

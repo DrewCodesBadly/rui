@@ -5,10 +5,16 @@
 namespace ui {
 class RectBorders {
 public:
-  unsigned int left = 0;
-  unsigned int top = 0;
-  unsigned int right = 0;
-  unsigned int bottom = 0;
+  float left = 0;
+  float top = 0;
+  float right = 0;
+  float bottom = 0;
+  RectBorders() {};
+  RectBorders(float left, float top, float right, float bottom);
+  RectBorders(float horizontal, float veritcal)
+      : left(horizontal), top(veritcal), right(horizontal), bottom(veritcal) {};
+  RectBorders(float allSides)
+      : left(allSides), right(allSides), top(allSides), bottom(allSides) {};
 };
 
 class BackgroundSource {};

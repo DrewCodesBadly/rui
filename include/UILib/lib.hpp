@@ -13,17 +13,18 @@ private:
   int antiAliasingLevel = 4;
   ui::Color backgroundColor = ui::Color(0, 0, 0, 255);
   std::string appName;
-  ui::Element rootElement;
+  ui::Element *rootElement;
   std::vector<ui::Element *> mouseListeners;
   std::optional<ui::Element *> hoveringWidget;
+  unsigned int sizeX = 512;
+  unsigned int sizeY = 512;
 
 public:
   App(std::string name) : appName(name) {};
   App withVsync(bool vsync);
   App withAntiAliasing(int antiAliasingLevel);
   App withBackgroundColor(ui::Color color);
-  void setRootElement(ui::Element element);
+  void setRootElement(ui::Element *element);
 
-  void openWindow(bool fullscreen = false, unsigned int sizeX = 512,
-                  unsigned int sizeY = 512);
+  void openWindow(bool fullscreen = false);
 };

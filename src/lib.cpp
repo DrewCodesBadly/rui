@@ -1,17 +1,21 @@
-#include "UILib/element.hpp"
+#include "element.cpp"
+#include "shapes.cpp"
 #include "util.cpp"
 #include <SFML/Graphics.hpp>
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/View.hpp>
 #include <SFML/System/String.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Window/ContextSettings.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/WindowEnums.hpp>
+#include <UILib/element.hpp>
 #include <UILib/lib.hpp>
 
 /// Starts running this app in a window.
-void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
+void App::openWindow(bool fullscreen) {
   sf::ContextSettings settings;
   settings.antiAliasingLevel = antiAliasingLevel;
   sf::RenderWindow window(
@@ -26,6 +30,12 @@ void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
       if (event->is<sf::Event::Closed>()) {
         window.close();
       } else if (const auto *resized = event->getIf<sf::Event::Resized>()) {
+        sizeX = resized->size.x;
+        sizeY = resized->size.y;
+        // resets the window view to handle size change correctly.
+        window.setView(
+            sf::View(sf::FloatRect({0., 0.}, sf::Vector2f(resized->size))));
+        needsRedraw = true;
       } else if (const auto *keyPressed =
                      event->getIf<sf::Event::KeyPressed>()) {
       } else if (const auto *keyRelease =
@@ -40,7 +50,6 @@ void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
                      event->getIf<sf::Event::MouseWheelScrolled>()) {
       } else if (const auto *textEntered =
                      event->getIf<sf::Event::TextEntered>()) {
-      } else if (const auto *resized = event->getIf<sf::Event::Resized>()) {
       }
     }
 
@@ -48,9 +57,9 @@ void App::openWindow(bool fullscreen, unsigned int sizeX, unsigned int sizeY) {
       window.clear(toSFColor(backgroundColor));
 
       ui::ElementRenderContext context;
-      context.size = sf::Vector2u(sizeX, sizeY);
-      rootElement.drawToWindow(&window, context);
-      rootElement.renderChildren(&window, context);
+      context.size = sf::Vector2f(sizeX, sizeY);
+      rootElement->drawToWindow(&window, context);
+      rootElement->renderChildren(&window, context);
 
       window.display();
       needsRedraw = false;
@@ -76,4 +85,4 @@ App App::withBackgroundColor(ui::Color color) {
   return *this;
 }
 
-void App::setRootElement(ui::Element element) { rootElement = element; }
+void App::setRootElement(ui::Element *element) { rootElement = element; }

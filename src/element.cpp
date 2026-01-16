@@ -2,90 +2,81 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <UILib/element.hpp>
-#include <algorithm>
+#include <UILib/util.hpp>
 
 /// Draws this element to the screen.
 void ui::Element::drawToWindow(sf::RenderWindow *window,
                                ElementRenderContext context) {
-  // Draws a rectangle in the window
-  sf::RectangleShape shape;
-  shape.setSize(sf::Vector2f(context.size.x, context.size.y));
-  shape.setPosition(sf::Vector2f(context.topLeft.x, context.topLeft.y));
-  window->draw(shape);
+  // no op
 }
 
 /// Draws all children of this element.
 void ui::Element::renderChildren(sf::RenderWindow *window,
                                  ElementRenderContext context) {
-  unsigned int usedSpace = 0;
-  unsigned int perpendicularMinSize = 0;
+  float usedSpace = 0;
+  float perpendicularMinSize = 0;
   unsigned int totalAxisSplit = 0;
 
   // Move in to allow for padding
-  context.topLeft += sf::Vector2u(inset.left, inset.top);
-  // TODO: fix underflows?
-  context.size -= sf::Vector2u(inset.right, inset.bottom);
+  context.topLeft += sf::Vector2f(inset.left, inset.top);
+  context.size -= sf::Vector2f(inset.left, inset.top);
+  context.size -= sf::Vector2f(inset.right, inset.bottom);
 
-  // TODO: replace with getMinimumSize since that's all this does.
   // Divide space among children
   for (Element *child : children) {
-    sf::Vector2u childMinSize = child->getMiniminumSize();
-    if (verticalChildren) {
-      perpendicularMinSize = std::max(perpendicularMinSize, childMinSize.x);
-      usedSpace += childMinSize.y;
-    } else {
-      perpendicularMinSize = std::max(perpendicularMinSize, childMinSize.y);
-      usedSpace += childMinSize.x;
+    sf::Vector2f childMinSize = child->getMiniminumSize();
+    perpendicularMinSize = std::max(perpendicularMinSize, childMinSize.y);
+    usedSpace += childMinSize.x;
+    if (child->perpendicularSizing == PerpendicularSizing::Expand) {
+      perpendicularMinSize = context.size.y;
     }
+    totalAxisSplit += child->spacePriority;
   }
 
-  unsigned int portionedLeftoverSpace;
+  // Move down to align vertically
+  context.topLeft.y +=
+      (context.size.y - perpendicularMinSize) * childPerpendicularAlign;
+
+  float portionedLeftoverSpace;
   if (totalAxisSplit > 0) {
-    // again - underflows?
     portionedLeftoverSpace =
         verticalChildren ? context.size.y : context.size.x - usedSpace;
     portionedLeftoverSpace /= totalAxisSplit;
   } else {
-    portionedLeftoverSpace = 0;
+    portionedLeftoverSpace = 0.;
+    context.topLeft.x += (context.size.x - usedSpace) * childParallelAlign;
   }
 
   // Render each child
   for (Element *child : children) {
     ElementRenderContext childContext(context);
-    sf::Vector2u childMinSize = child->getMiniminumSize();
+    sf::Vector2f childMinSize = child->getMiniminumSize();
 
     // Allocate correct amount of space to child
-    if (verticalChildren) {
+    childContext.size.x = childMinSize.x;
+    childContext.size.x += portionedLeftoverSpace * child->spacePriority;
+    childContext.size.y = perpendicularMinSize;
+
+    switch (child->perpendicularSizing) {
+    case Shrink:
+      childContext.topLeft.y +=
+          (childContext.size.y - childMinSize.y) * child->perpendicularAlign;
       childContext.size.y = childMinSize.y;
-      childContext.size.y +=
-          portionedLeftoverSpace * child->vertialSpacePriority;
-      childContext.size.x = perpendicularMinSize;
-
-      if (child->horizontalSpacePriority == 0) {
-        childContext.topLeft.x +=
-            (childContext.size.x - childMinSize.x) * child->halign;
-        childContext.size.x = childMinSize.x;
-      }
-
-      context.topLeft.y += childContext.size.y;
-    } else {
-      childContext.size.x = childMinSize.x;
-      childContext.size.x +=
-          portionedLeftoverSpace * child->horizontalSpacePriority;
+      break;
+    case Stretch:
       childContext.size.y = perpendicularMinSize;
-
-      if (child->vertialSpacePriority == 0) {
-        childContext.topLeft.y +=
-            (childContext.size.y - childMinSize.y) * child->halign;
-        childContext.size.y = childMinSize.y;
-      }
-
-      context.topLeft.x += childContext.size.x;
+      break;
+    case Expand:
+      // no operation needed
+      break;
     }
 
     // Draw child
     child->drawToWindow(window, childContext);
     child->renderChildren(window, childContext);
+
+    // Track current X position
+    context.topLeft.x += childContext.size.x;
   }
 
   // Clears cached minimum size after rendering.
@@ -93,7 +84,7 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
 }
 
 /// Gets the minimum size needed for this element to render correctly.
-sf::Vector2u ui::Element::getMiniminumSize() {
+sf::Vector2f ui::Element::getMiniminumSize() {
   if (cachedMinSize.has_value()) {
     return cachedMinSize.value();
   } else {
@@ -103,9 +94,18 @@ sf::Vector2u ui::Element::getMiniminumSize() {
 }
 
 /// Recalculates the minimum size needed to render this element.
-sf::Vector2u ui::Element::recalculateMinimumSize() {
-  // TODO: Add logic
-  return minSize;
+sf::Vector2f ui::Element::recalculateMinimumSize() {
+  // TODO: support vertical orientation
+  sf::Vector2f childrenMinSize = sf::Vector2f(0, 0);
+  for (Element *child : children) {
+    sf::Vector2f childMinSize = child->getMiniminumSize();
+    childrenMinSize.x += childMinSize.x;
+    childrenMinSize.y = std::max(childrenMinSize.y, childMinSize.y);
+  }
+  childrenMinSize.x += inset.left + inset.right;
+  childrenMinSize.y += inset.top + inset.bottom;
+  return sf::Vector2f(std::max(childrenMinSize.x, minSize.x),
+                      std::max(childrenMinSize.y, minSize.y));
 }
 
 void ui::Element::clearCachedMinSize() { cachedMinSize.reset(); }
