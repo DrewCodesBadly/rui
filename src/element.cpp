@@ -17,6 +17,12 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
   float perpendicularMinSize = 0;
   unsigned int totalAxisSplit = 0;
 
+  // Flips vectors if children are vertical
+  if (verticalChildren) {
+    context.size = sf::Vector2f(context.size.y, context.size.x);
+    context.topLeft = sf::Vector2f(context.topLeft.y, context.topLeft.x);
+  }
+
   // Move in to allow for padding
   context.topLeft += sf::Vector2f(inset.left, inset.top);
   context.size -= sf::Vector2f(inset.left, inset.top);
@@ -25,6 +31,10 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
   // Divide space among children
   for (Element *child : children) {
     sf::Vector2f childMinSize = child->getMiniminumSize();
+    if (verticalChildren) {
+      childMinSize = sf::Vector2f(childMinSize.y, childMinSize.x);
+    }
+
     perpendicularMinSize = std::max(perpendicularMinSize, childMinSize.y);
     usedSpace += childMinSize.x;
     if (child->perpendicularSizing == PerpendicularSizing::Expand) {
@@ -33,14 +43,13 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
     totalAxisSplit += child->spacePriority;
   }
 
-  // Move down to align vertically
+  // Align along parallel axis
   context.topLeft.y +=
       (context.size.y - perpendicularMinSize) * childPerpendicularAlign;
 
   float portionedLeftoverSpace;
   if (totalAxisSplit > 0) {
-    portionedLeftoverSpace =
-        verticalChildren ? context.size.y : context.size.x - usedSpace;
+    portionedLeftoverSpace = context.size.x - usedSpace;
     portionedLeftoverSpace /= totalAxisSplit;
   } else {
     portionedLeftoverSpace = 0.;
@@ -51,6 +60,9 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
   for (Element *child : children) {
     ElementRenderContext childContext(context);
     sf::Vector2f childMinSize = child->getMiniminumSize();
+    if (verticalChildren) {
+      childMinSize = sf::Vector2f(childMinSize.y, childMinSize.x);
+    }
 
     // Allocate correct amount of space to child
     childContext.size.x = childMinSize.x;
@@ -71,12 +83,20 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
       break;
     }
 
+    // Track current X position
+    context.topLeft.x += childContext.size.x;
+
+    // Undo vector flip if needed
+    if (verticalChildren) {
+      childContext.size =
+          sf::Vector2f(childContext.size.y, childContext.size.x);
+      childContext.topLeft =
+          sf::Vector2f(childContext.topLeft.y, childContext.topLeft.x);
+    }
+
     // Draw child
     child->drawToWindow(window, childContext);
     child->renderChildren(window, childContext);
-
-    // Track current X position
-    context.topLeft.x += childContext.size.x;
   }
 
   // Clears cached minimum size after rendering.

@@ -31,7 +31,7 @@ int main() {
   b3.perpendicularSizing = ui::PerpendicularSizing::Stretch;
 
   root.background = ui::Color(255, 255, 255);
-  root.verticalChildren = false;
+  root.verticalChildren = true;
   root.spacePriority = 1;
   root.perpendicularSizing = ui::PerpendicularSizing::Expand;
 
