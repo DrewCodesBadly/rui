@@ -16,9 +16,8 @@ public:
   sf::Vector2f size;
 };
 
-/// Base class for UI elements. Draws a rectangle in its area.
+/// Base class for UI elements.
 class Element {
-private:
 protected:
   std::optional<sf::Vector2f> cachedMinSize;
 

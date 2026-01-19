@@ -7,19 +7,14 @@
 #include <UILib/shapes.hpp>
 
 int main() {
-  App app = App("Hello World Example")
-                .withVsync(true)
-                .withBackgroundColor(ui::Color(0, 0, 0));
-  ui::Circle c = ui::Circle();
+  ui::App app = ui::App("Hello World Example")
+                    .withVsync(true)
+                    .withBackgroundColor(ui::Color(0, 0, 0));
   ui::Text t = ui::Text(sf::Font("assets/Roboto-Regular.ttf"), "Hello World!");
   ui::Box b1 = ui::Box({&t});
   ui::Box b2 = ui::Box();
   ui::Box b3 = ui::Box();
   ui::Box root = ui::Box({&b1, &b2, &b3});
-
-  c.fillColor = ui::Color(125, 25, 125);
-  c.minSize = sf::Vector2f(25., 50.);
-  c.perpendicularSizing = ui::PerpendicularSizing::Stretch;
 
   b1.background = ui::Color(100, 100, 100);
   b1.inset = ui::RectBorders(20.0);
