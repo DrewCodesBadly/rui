@@ -1,16 +1,17 @@
 #include "UILib/element.hpp"
 #include "UILib/text.hpp"
 #include "UILib/util.hpp"
-#include <SFML/Graphics/Font.hpp>
-#include <SFML/System/Vector2.hpp>
 #include <UILib/lib.hpp>
 #include <UILib/shapes.hpp>
 
 int main() {
+  ui::loadFont("roboto", "assets/Roboto-Regular.ttf");
+  ui::setDefaultFont("roboto");
+
   ui::App app = ui::App("Hello World Example")
                     .withVsync(true)
                     .withBackgroundColor(ui::Color(0, 0, 0));
-  ui::Text t = ui::Text(sf::Font("assets/Roboto-Regular.ttf"), "Hello World!");
+  ui::Text t = ui::Text("Hello World!");
   ui::Box b1 = ui::Box({&t});
   ui::Box b2 = ui::Box();
   ui::Box b3 = ui::Box();

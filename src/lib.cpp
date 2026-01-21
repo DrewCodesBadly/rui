@@ -124,9 +124,10 @@ void ui::App::openWindow(bool fullscreen) {
       activeListeners.clear();
 
       ui::ElementRenderContext context;
+      context.window = &window;
       context.size = sf::Vector2f(sizeX, sizeY);
-      rootElement->drawToWindow(&window, context);
-      rootElement->renderChildren(&window, context);
+      rootElement->drawToWindow(context);
+      rootElement->renderChildren(context);
 
       window.display();
       needsRedraw = false;

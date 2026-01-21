@@ -1,18 +1,25 @@
+#pragma once
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <UILib/element.hpp>
 #include <UILib/util.hpp>
+#include <algorithm>
+
+class ui::ElementRenderContext {
+public:
+  sf::Vector2f topLeft;
+  sf::Vector2f size;
+  sf::RenderWindow *window;
+};
 
 /// Draws this element to the screen.
-void ui::Element::drawToWindow(sf::RenderWindow *window,
-                               ElementRenderContext context) {
+void ui::Element::drawToWindow(ElementRenderContext context) {
   // no op
 }
 
 /// Draws all children of this element.
-void ui::Element::renderChildren(sf::RenderWindow *window,
-                                 ElementRenderContext context) {
+void ui::Element::renderChildren(ElementRenderContext context) {
   float usedSpace = 0;
   float perpendicularMinSize = 0;
   unsigned int totalAxisSplit = 0;
@@ -30,7 +37,9 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
 
   // Divide space among children
   for (Element *child : children) {
-    sf::Vector2f childMinSize = child->getMiniminumSize();
+    ElementSizeCache childMinSizeFromCache = child->getMiniminumSize();
+    sf::Vector2f childMinSize =
+        sf::Vector2f(childMinSizeFromCache.x, childMinSizeFromCache.y);
     if (verticalChildren) {
       childMinSize = sf::Vector2f(childMinSize.y, childMinSize.x);
     }
@@ -59,7 +68,9 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
   // Render each child
   for (Element *child : children) {
     ElementRenderContext childContext(context);
-    sf::Vector2f childMinSize = child->getMiniminumSize();
+    ElementSizeCache childMinSizeFromCache = child->getMiniminumSize();
+    sf::Vector2f childMinSize =
+        sf::Vector2f(childMinSizeFromCache.x, childMinSizeFromCache.y);
     if (verticalChildren) {
       childMinSize = sf::Vector2f(childMinSize.y, childMinSize.x);
     }
@@ -95,37 +106,35 @@ void ui::Element::renderChildren(sf::RenderWindow *window,
     }
 
     // Draw child
-    child->drawToWindow(window, childContext);
-    child->renderChildren(window, childContext);
+    child->drawToWindow(childContext);
+    child->renderChildren(childContext);
   }
 
   // Clears cached minimum size after rendering.
-  clearCachedMinSize();
+  sizeCache.reset();
 }
 
 /// Gets the minimum size needed for this element to render correctly.
-sf::Vector2f ui::Element::getMiniminumSize() {
-  if (cachedMinSize.has_value()) {
-    return cachedMinSize.value();
-  } else {
-    cachedMinSize.emplace(recalculateMinimumSize());
-    return cachedMinSize.value();
+ui::ElementSizeCache ui::Element::getMiniminumSize() {
+  if (!sizeCache.has_value()) {
+    recalculateMinimumSize();
   }
+  return sizeCache.value();
 }
 
 /// Recalculates the minimum size needed to render this element.
-sf::Vector2f ui::Element::recalculateMinimumSize() {
+void ui::Element::recalculateMinimumSize() {
   // TODO: support vertical orientation
   sf::Vector2f childrenMinSize = sf::Vector2f(0, 0);
   for (Element *child : children) {
-    sf::Vector2f childMinSize = child->getMiniminumSize();
+    ElementSizeCache childMinSize = child->getMiniminumSize();
     childrenMinSize.x += childMinSize.x;
     childrenMinSize.y = std::max(childrenMinSize.y, childMinSize.y);
   }
   childrenMinSize.x += inset.left + inset.right;
   childrenMinSize.y += inset.top + inset.bottom;
-  return sf::Vector2f(std::max(childrenMinSize.x, minSize.x),
-                      std::max(childrenMinSize.y, minSize.y));
+  ElementSizeCache cache;
+  cache.x = std::max(childrenMinSize.x, minWidth);
+  cache.y = std::max(childrenMinSize.y, minHeight);
+  sizeCache.emplace(cache);
 }
-
-void ui::Element::clearCachedMinSize() { cachedMinSize.reset(); }

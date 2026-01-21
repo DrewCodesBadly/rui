@@ -1,12 +1,12 @@
 #include "UILib/element.hpp"
+#include "element.cpp"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <UILib/listeners.hpp>
 #include <vector>
 
 static std::vector<ui::MouseListener *> activeListeners;
 
-void ui::MouseListener::drawToWindow(sf::RenderWindow *window,
-                                     ElementRenderContext context) {
+void ui::MouseListener::drawToWindow(ElementRenderContext context) {
   // No-op, but adds self to the listener list
   currentX = context.topLeft.x;
   currentY = context.topLeft.y;

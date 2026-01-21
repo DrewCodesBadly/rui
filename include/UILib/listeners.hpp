@@ -9,8 +9,7 @@ private:
 
 public:
   bool contains(int x, int y);
-  void drawToWindow(sf::RenderWindow *window,
-                    ElementRenderContext context) override;
+  void drawToWindow(ElementRenderContext context) override;
 
   // Virtual functions to override to handle mouse events.
   // The return value decides if the window needs to be redrawn.

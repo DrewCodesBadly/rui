@@ -11,8 +11,7 @@ class Box : public Element {
 public:
   ui::Color background = ui::Color(0, 0, 0, 255);
 
-  void drawToWindow(sf::RenderWindow *window,
-                    ElementRenderContext context) override;
+  void drawToWindow(ElementRenderContext context) override;
 
   Box() {};
   Box(std::initializer_list<Element *> children) { this->children = children; };
@@ -23,8 +22,7 @@ public:
 class Circle : public Element {
 public:
   ui::Color fillColor = ui::Color(0, 0, 0);
-  void drawToWindow(sf::RenderWindow *window,
-                    ElementRenderContext context) override;
+  void drawToWindow(ElementRenderContext context) override;
 
   Circle() {};
   Circle(std::initializer_list<Element *> children) {
