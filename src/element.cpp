@@ -2,9 +2,11 @@
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Vector2.hpp>
+#include <SFML/Window/Keyboard.hpp>
 #include <UILib/element.hpp>
 #include <UILib/util.hpp>
 #include <algorithm>
+#include <iostream>
 
 class ui::ElementRenderContext {
 public:
@@ -124,12 +126,16 @@ ui::ElementSizeCache ui::Element::getMiniminumSize() {
 
 /// Recalculates the minimum size needed to render this element.
 void ui::Element::recalculateMinimumSize() {
-  // TODO: support vertical orientation
   sf::Vector2f childrenMinSize = sf::Vector2f(0, 0);
   for (Element *child : children) {
     ElementSizeCache childMinSize = child->getMiniminumSize();
-    childrenMinSize.x += childMinSize.x;
-    childrenMinSize.y = std::max(childrenMinSize.y, childMinSize.y);
+    if (verticalChildren) {
+      childrenMinSize.y += childMinSize.y;
+      childrenMinSize.x = std::max(childrenMinSize.x, childMinSize.x);
+    } else {
+      childrenMinSize.x += childMinSize.x;
+      childrenMinSize.y = std::max(childrenMinSize.y, childMinSize.y);
+    }
   }
   childrenMinSize.x += inset.left + inset.right;
   childrenMinSize.y += inset.top + inset.bottom;

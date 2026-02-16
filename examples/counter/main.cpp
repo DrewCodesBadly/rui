@@ -24,13 +24,27 @@ private:
         return true;
       },
       {&buttonText});
+  ui::Box innerContainer = ui::Box({&counterText, &button});
+  ui::Element mainAreaContainer = ui::Element({&innerContainer});
 
 public:
   CounterRoot() {
+    inset = ui::RectBorders(48.0);
+    verticalChildren = true;
+
+    innerContainer.background = ui::Color(128, 128, 128);
+    innerContainer.verticalChildren = true;
+    innerContainer.inset = ui::RectBorders(48.0);
+
+    titleText.fontSize = 64.0;
+
+    mainAreaContainer.spacePriority = 1;
+
+    counterText.inset = ui::RectBorders(0.0, 24.0);
     button.inset = ui::RectBorders(24.0);
+
     children.push_back(&titleText);
-    children.push_back(&counterText);
-    children.push_back(&button);
+    children.push_back(&mainAreaContainer);
   };
 };
 
@@ -39,7 +53,7 @@ int main() {
   ui::setDefaultFont("roboto");
   ui::App app = ui::App("Hello World Example")
                     .withVsync(true)
-                    .withBackgroundColor(ui::Color(20, 20, 20));
+                    .withBackgroundColor(ui::Color(255, 255, 255));
   CounterRoot root;
   app.setRootElement(&root);
   app.openWindow();
