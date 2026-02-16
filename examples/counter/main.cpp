@@ -27,6 +27,7 @@ private:
 
 public:
   CounterRoot() {
+    button.inset = ui::RectBorders(24.0);
     children.push_back(&titleText);
     children.push_back(&counterText);
     children.push_back(&button);

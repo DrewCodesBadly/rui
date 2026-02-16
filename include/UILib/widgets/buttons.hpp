@@ -16,6 +16,7 @@ private:
 
 public:
   virtual bool onLeftClickReleased() override;
+  virtual void drawToWindow(ElementRenderContext context) override;
 
   Button(ui::Color color, std::function<bool()> onPressed,
          std::initializer_list<Element *> children);
